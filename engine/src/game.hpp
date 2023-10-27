@@ -15,7 +15,7 @@ public:
 
 private:
     int m_width, m_height;
-    std::shared_ptr<Window> m_window;
+    std::shared_ptr<RenderWindow> m_window;
 };
 
 }// namespace saturn

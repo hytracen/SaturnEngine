@@ -5,20 +5,23 @@ add_requires("vulkansdk", "glfw", "glm", "tinyobjloader")
 add_requires("imgui", {configs = {glfw_vulkan = true}})
 add_requires("spdlog", {configs = {std_format = true}})
 
-if is_plat("windows") then
-    add_defines("SATURN_PLAT_WINDOWS")
+if is_mode("debug") then
+    add_defines("SATURN_DEBUG")
+elseif is_mode("release") then
+    add_defines("SATURN_RELEASE")
 end
 
 target("SaturnEngine")
     set_kind("binary")
     add_files("engine/src/**.cpp")
     set_pcxxheader("engine/src/engine_pch.hpp")
-    add_defines("SATURN_SHARED_LIBRARY")
+    
     if is_plat("windows") then
         add_defines("ENGINE_ROOT_DIR=\"" .. (os.projectdir():gsub("\\", "\\\\")) .. "\\\\engine\"")
     else 
         add_defines("ENGINE_ROOT_DIR=\"" .. (os.projectdir():gsub("\\", "/")) .. "/engine\"")
     end
+
     add_packages("vulkansdk", "glfw", "glm", "tinyobjloader", "imgui", "spdlog")
     add_includedirs("deps", "engine/src/")
 
