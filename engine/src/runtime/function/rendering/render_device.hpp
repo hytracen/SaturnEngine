@@ -20,10 +20,10 @@ struct QueueFamilyIndices {
 
 class RenderDevice {
 public:
-    explicit RenderDevice(const std::string& engine_name, const std::string &game_name, std::shared_ptr<RenderWindow> window);
+    explicit RenderDevice(const std::string &engine_name, const std::string &game_name, std::shared_ptr<RenderWindow> window);
     ~RenderDevice();
 
-    void CreateInstance(const std::string& engine_name, const std::string& game_name);
+    void CreateInstance(const std::string &engine_name, const std::string &game_name);
     void CreateSurface();
 
     //----------------------Getter----------------------
@@ -40,18 +40,10 @@ public:
     auto GetSurface() -> VkSurfaceKHR { return m_surface; }
     //--------------------------------------------------
 
-    auto FindPhysicalQueueFamilies() -> QueueFamilyIndices { return FindQueueFamilies(m_physical_device); }
-
-private:
-    // Not copyable or movable
-    RenderDevice(const RenderDevice &) = delete;
-    auto operator=(const RenderDevice &) -> RenderDevice & = delete;
-    RenderDevice(RenderDevice &&) = delete;
-    auto operator=(RenderDevice &&) -> RenderDevice & = delete;
-
-    void PickPhysicalDevice();
-    void CreateLogicalDevice();
-    void CreateCommandPool();
+    //---------------------Image------------------------
+    auto CreateImageView(VkImage image, VkFormat format, VkImageAspectFlags aspect_flags, uint32_t mip_levels) -> VkImageView;
+    void CreateImage(uint32_t width, uint32_t height, uint32_t mip_levels, VkSampleCountFlagBits num_samples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage &image, VkDeviceMemory &image_memory);
+    //--------------------------------------------------
 
     // Buffer Helper Functions
     void CreateBuffer(
@@ -71,6 +63,21 @@ private:
             VkMemoryPropertyFlags properties,
             VkImage &image,
             VkDeviceMemory &image_memory);
+
+
+    auto FindPhysicalQueueFamilies() -> QueueFamilyIndices { return FindQueueFamilies(m_physical_device); }
+
+private:
+    // Not copyable or movable
+    RenderDevice(const RenderDevice &) = delete;
+    auto operator=(const RenderDevice &) -> RenderDevice & = delete;
+    RenderDevice(RenderDevice &&) = delete;
+    auto operator=(RenderDevice &&) -> RenderDevice & = delete;
+
+    void PickPhysicalDevice();
+    void CreateLogicalDevice();
+    void CreateCommandPool();
+
 
     VkPhysicalDeviceProperties properties;
 

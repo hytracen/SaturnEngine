@@ -40,10 +40,17 @@ private:
 #define ENGINE_LOG_INFO(...) saturn::Log::Ins().GetEngineLogger()->info(__VA_ARGS__)
 #define ENGINE_LOG_WARN(...) saturn::Log::Ins().GetEngineLogger()->warn(__VA_ARGS__)
 #define ENGINE_LOG_ERROR(...) saturn::Log::Ins().GetEngineLogger()->error(__VA_ARGS__)
-#define ENGINE_LOG_FATAL(...) saturn::Log::Ins().GetEngineLogger()->fatal(__VA_ARGS__)
+#define ENGINE_LOG_CRITICAL(...) saturn::Log::Ins().GetEngineLogger()->critical(__VA_ARGS__)
 
 #define GAME_LOG_TRACE(...) saturn::Log::Ins().GetGameLogger()->trace(__VA_ARGS__)
 #define GAME_LOG_INFO(...) saturn::Log::Ins().GetGameLogger()->info(__VA_ARGS__)
 #define GAME_LOG_WARN(...) saturn::Log::Ins().GetGameLogger()->warn(__VA_ARGS__)
 #define GAME_LOG_ERROR(...) saturn::Log::Ins().GetGameLogger()->error(__VA_ARGS__)
-#define GAME_LOG_FATAL(...) saturn::Log::Ins().GetGameLogger()->fatal(__VA_ARGS__)
+#define GAME_LOG_CRITICAL(...) saturn::Log::Ins().GetGameLogger()->critical(__VA_ARGS__)
+
+// 自定义断言
+#define SATURN_ASSERT(expression, message) \
+    if (!(expression)) { \
+        saturn::Log::Ins().GetEngineLogger()->critical("Assertion failed in {} line {}\nExpression:{}\nMessage:{}", __FILE__, __LINE__, #expression, message); \
+        abort(); \
+    }
