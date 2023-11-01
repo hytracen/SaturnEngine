@@ -22,4 +22,4 @@
 #include <stdexcept>
 #include <utility>
 
-#include <runtime/core/log/core_log.hpp>
+#include <runtime/core/log/log.hpp>

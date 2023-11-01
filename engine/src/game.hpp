@@ -1,7 +1,7 @@
 #pragma once
 
 #include <engine_pch.hpp>
-#include <runtime/function/rendering/render_window.hpp>
+#include <runtime/function/rendering/window.hpp>
 
 namespace saturn {
 
@@ -15,7 +15,7 @@ public:
 
 private:
     int m_width, m_height;
-    std::shared_ptr<RenderWindow> m_window;
+    std::shared_ptr<rendering::Window> m_window;
 };
 
 }// namespace saturn

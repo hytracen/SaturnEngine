@@ -1,14 +1,16 @@
 #include <engine_pch.hpp>
 
-#include "render_device.hpp"
+#include "device.hpp"
 
 namespace saturn {
 
-class RenderSwapchain {
+namespace rendering {
+
+class Swapchain {
 public:
-    explicit RenderSwapchain(std::shared_ptr<RenderDevice> render_device);
-    explicit RenderSwapchain(std::shared_ptr<RenderDevice> render_device, std::shared_ptr<RenderSwapchain> old_swapchain);
-    ~RenderSwapchain();
+    explicit Swapchain(std::shared_ptr<Device> render_device);
+    explicit Swapchain(std::shared_ptr<Device> render_device, std::shared_ptr<Swapchain> old_swapchain);
+    ~Swapchain();
 
     auto ImageAvailableSemaphores() -> std::vector<VkSemaphore> & { return m_image_available_semaphores; }
     auto RenderFinishedSemaphores() -> std::vector<VkSemaphore> & { return m_render_finished_semaphores; }
@@ -48,9 +50,9 @@ private:
     auto FindDepthFormat() -> VkFormat;
     
 
-    std::shared_ptr<RenderDevice> m_render_device;
+    std::shared_ptr<Device> m_render_device;
     VkSwapchainKHR m_swapchain;
-    std::shared_ptr<RenderSwapchain> m_old_swapchain;
+    std::shared_ptr<Swapchain> m_old_swapchain;
     std::vector<VkImage> m_swapchain_images;
 
     VkImage m_color_image;
@@ -71,5 +73,7 @@ private:
     std::vector<VkSemaphore> m_render_finished_semaphores;
     std::vector<VkFence> m_in_flight_fences;
 };
+
+}  // namespace rendering
 
 }// namespace saturn

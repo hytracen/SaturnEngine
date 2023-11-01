@@ -3,25 +3,27 @@
 #include <engine_pch.hpp>
 #include <utility>
 
-#include "render_device.hpp"
+#include "device.hpp"
 
 namespace saturn {
 
-class RenderDescriptorPool {
+namespace rendering {
+
+class DescriptorPool {
 public:
     //-----------------------------------Builder-------------------------------------
     class Builder {
     public:
-        explicit Builder(std::shared_ptr<RenderDevice> render_device) : m_render_device{std::move(render_device)} {}
+        explicit Builder(std::shared_ptr<Device> render_device) : m_render_device{std::move(render_device)} {}
 
         auto AddPoolSize(VkDescriptorType descriptor_type, uint32_t count) -> Builder &;
         auto SetPoolFlags(VkDescriptorPoolCreateFlags flags) -> Builder &;
         // auto SetMaxSets(uint32_t count) -> Builder &;
 
-        [[nodiscard]] auto Build() const -> std::unique_ptr<RenderDescriptorPool>;
+        [[nodiscard]] auto Build() const -> std::shared_ptr<DescriptorPool>;
 
     private:
-        std::shared_ptr<RenderDevice> m_render_device;
+        std::shared_ptr<Device> m_render_device;
         std::vector<VkDescriptorPoolSize> m_pool_sizes{};
         // uint32_t m_max_sets = 1000;
         uint32_t m_current_sets_count = 0;
@@ -30,17 +32,18 @@ public:
     //-------------------------------------------------------------------------------
 
 
-    RenderDescriptorPool(
-            std::shared_ptr<RenderDevice> render_device,
+    DescriptorPool(
+            std::shared_ptr<Device> render_device,
             uint32_t max_sets,
             VkDescriptorPoolCreateFlags pool_flags,
             const std::vector<VkDescriptorPoolSize> &pool_sizes);
-    ~RenderDescriptorPool();
-    RenderDescriptorPool(const RenderDescriptorPool &) = delete;
-    auto operator=(const RenderDescriptorPool &) -> RenderDescriptorPool & = delete;
+    ~DescriptorPool();
+    DescriptorPool(const DescriptorPool &) = delete;
+    auto operator=(const DescriptorPool &) -> DescriptorPool & = delete;
 
 
     [[nodiscard]] auto GetDescriptorPool() const -> VkDescriptorPool { return m_descriptor_pool; };
+    [[nodiscard]] auto GetDevice() const -> std::shared_ptr<Device> { return m_render_device; }
 
     auto AllocateDescriptor(
             VkDescriptorSetLayout descriptor_set_layout, VkDescriptorSet &descriptor_set) const -> bool;
@@ -50,57 +53,59 @@ public:
     void ResetPool();
 
 private:
-    std::shared_ptr<RenderDevice> m_render_device;
+    std::shared_ptr<Device> m_render_device;
     VkDescriptorPool m_descriptor_pool;
 
-    friend class RenderDescriptorWriter;
+    friend class DescriptorWriter;
 };
 
-class RenderDescriptorSetLayout {
+class DescriptorSetLayout {
 public:
     //-----------------------------------Builder-------------------------------------
     class Builder {
     public:
-        explicit Builder(std::shared_ptr<RenderDevice> render_device) : m_render_device{std::move(render_device)} {}
+        explicit Builder(std::shared_ptr<Device> render_device) : m_render_device{std::move(render_device)} {}
 
         auto AddBinding(uint32_t binding, VkDescriptorType descriptor_type, VkShaderStageFlags stage_flags, uint32_t count = 1) -> Builder &;
-        [[nodiscard]] auto Build() const -> std::unique_ptr<RenderDescriptorSetLayout>;
+        [[nodiscard]] auto Build() const -> std::unique_ptr<DescriptorSetLayout>;
 
     private:
-        std::shared_ptr<RenderDevice> m_render_device;
+        std::shared_ptr<Device> m_render_device;
         std::unordered_map<uint32_t, VkDescriptorSetLayoutBinding> bindings{};
     };
     //-------------------------------------------------------------------------------
 
-    RenderDescriptorSetLayout(std::shared_ptr<RenderDevice> render_device, const std::unordered_map<uint32_t, VkDescriptorSetLayoutBinding> &bindings);
-    ~RenderDescriptorSetLayout();
-    RenderDescriptorSetLayout(const RenderDescriptorSetLayout &) = delete;
-    auto operator=(const RenderDescriptorSetLayout &) -> RenderDescriptorSetLayout & = delete;
+    DescriptorSetLayout(std::shared_ptr<Device> render_device, const std::unordered_map<uint32_t, VkDescriptorSetLayoutBinding> &bindings);
+    ~DescriptorSetLayout();
+    DescriptorSetLayout(const DescriptorSetLayout &) = delete;
+    auto operator=(const DescriptorSetLayout &) -> DescriptorSetLayout & = delete;
 
     [[nodiscard]] auto GetDescriptorSetLayout() const -> VkDescriptorSetLayout { return m_descriptor_set_layout; }
     [[nodiscard]] auto GetBindings() -> std::unordered_map<uint32_t, VkDescriptorSetLayoutBinding> & { return m_bindings; }
 
 private:
-    std::shared_ptr<RenderDevice> m_render_device;
+    std::shared_ptr<Device> m_render_device;
     VkDescriptorSetLayout m_descriptor_set_layout;
     std::unordered_map<uint32_t, VkDescriptorSetLayoutBinding> m_bindings;
 };
 
-class RenderDescriptorWriter {
+class DescriptorWriter {
 public:
-    RenderDescriptorWriter(std::shared_ptr<RenderDescriptorSetLayout> set_layout, std::shared_ptr<RenderDescriptorPool> pool);
+    DescriptorWriter(std::shared_ptr<DescriptorSetLayout> set_layout, std::shared_ptr<DescriptorPool> pool);
 
-    auto WriteBuffer(uint32_t binding, VkDescriptorBufferInfo *buffer_info) -> RenderDescriptorWriter &;
-    auto WriteImage(uint32_t binding, VkDescriptorImageInfo *image_info) -> RenderDescriptorWriter &;
+    auto WriteBuffer(uint32_t binding, VkDescriptorBufferInfo *buffer_info) -> DescriptorWriter &;
+    auto WriteImage(uint32_t binding, VkDescriptorImageInfo *image_info) -> DescriptorWriter &;
 
     auto Build(VkDescriptorSet &set) -> bool;
     void Overwrite(VkDescriptorSet &set);
 
 private:
-    std::shared_ptr<RenderDescriptorSetLayout> m_set_layout;
-    std::shared_ptr<RenderDescriptorPool> m_pool;
+    std::shared_ptr<DescriptorSetLayout> m_set_layout;
+    std::shared_ptr<DescriptorPool> m_pool;
     const std::unordered_map<uint32_t, VkDescriptorSetLayoutBinding> &m_bindings;
     std::vector<VkWriteDescriptorSet> m_writes;
 };
+
+}  // namespace rendering
 
 }// namespace saturn

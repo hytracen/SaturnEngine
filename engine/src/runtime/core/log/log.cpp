@@ -1,4 +1,4 @@
-#include "core_log.hpp"
+#include "log.hpp"
 #include "spdlog/common.h"
 
 namespace saturn {

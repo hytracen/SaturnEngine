@@ -1,9 +1,12 @@
-#include "render_swapchain.hpp"
+#include "swapchain.hpp"
 
 #include <utility>
 
 namespace saturn {
-RenderSwapchain::RenderSwapchain(std::shared_ptr<RenderDevice> render_device) : m_render_device(std::move(render_device)) {
+
+namespace rendering {
+
+Swapchain::Swapchain(std::shared_ptr<Device> render_device) : m_render_device(std::move(render_device)) {
     CreateSwapchain();
     CreateImageViews();
     CreateRenderPass();
@@ -13,7 +16,7 @@ RenderSwapchain::RenderSwapchain(std::shared_ptr<RenderDevice> render_device) : 
     CreateSyncObjects();
 }
 
-RenderSwapchain::RenderSwapchain(std::shared_ptr<RenderDevice> render_device, std::shared_ptr<RenderSwapchain> old_swapchain)
+Swapchain::Swapchain(std::shared_ptr<Device> render_device, std::shared_ptr<Swapchain> old_swapchain)
                                  : m_render_device(std::move(render_device)), m_old_swapchain(std::move(old_swapchain)) {
     CreateSwapchain();
     CreateImageViews();
@@ -25,7 +28,7 @@ RenderSwapchain::RenderSwapchain(std::shared_ptr<RenderDevice> render_device, st
     m_old_swapchain.reset();
 }
 
-RenderSwapchain::~RenderSwapchain() {
+Swapchain::~Swapchain() {
     vkDestroyImageView(m_render_device->GetVkDevice(), m_depth_imageview, nullptr);
     vkDestroyImage(m_render_device->GetVkDevice(), m_depth_image, nullptr);
     vkFreeMemory(m_render_device->GetVkDevice(), m_depth_image_memory, nullptr);
@@ -53,7 +56,7 @@ RenderSwapchain::~RenderSwapchain() {
     vkDestroySwapchainKHR(m_render_device->GetVkDevice(), m_swapchain, nullptr);
 }
 
-void RenderSwapchain::CreateSwapchain() {
+void Swapchain::CreateSwapchain() {
     SwapChainSupportDetails swap_chain_support = QuerySwapChainSupport(m_render_device->GetPhyDevice());
 
     VkSurfaceFormatKHR surface_format = ChooseSwapSurfaceFormat(swap_chain_support.formats);
@@ -105,7 +108,7 @@ void RenderSwapchain::CreateSwapchain() {
     m_swapchain_extent = extent;
 }
 
-void RenderSwapchain::CreateImageViews() {
+void Swapchain::CreateImageViews() {
     m_swapchain_imageviews.resize(m_swapchain_images.size());
 
     for (uint32_t i = 0; i < m_swapchain_images.size(); i++) {
@@ -113,7 +116,7 @@ void RenderSwapchain::CreateImageViews() {
     }
 }
 
-void RenderSwapchain::CreateRenderPass() {
+void Swapchain::CreateRenderPass() {
     VkAttachmentDescription color_attachment{};
     color_attachment.format = m_swapchain_image_format;
     color_attachment.samples = m_render_device->GetMaxMsaaSamples();
@@ -186,21 +189,21 @@ void RenderSwapchain::CreateRenderPass() {
     }
 }
 
-void RenderSwapchain::CreateDepthResources() {
+void Swapchain::CreateDepthResources() {
     VkFormat depth_format = FindDepthFormat();
 
     m_render_device->CreateImage(m_swapchain_extent.width, m_swapchain_extent.height, 1, m_render_device->GetMaxMsaaSamples(), depth_format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_depth_image, m_depth_image_memory);
     m_depth_imageview = m_render_device->CreateImageView(m_depth_image, depth_format, VK_IMAGE_ASPECT_DEPTH_BIT, 1);
 }
 
-void RenderSwapchain::CreateColorResources() {
+void Swapchain::CreateColorResources() {
     VkFormat color_format = m_swapchain_image_format;
 
     m_render_device->CreateImage(m_swapchain_extent.width, m_swapchain_extent.height, 1, m_render_device->GetMaxMsaaSamples(), color_format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_color_image, m_color_image_memory);
     m_color_imageview = m_render_device->CreateImageView(m_color_image, color_format, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 }
 
-void RenderSwapchain::CreateFramebuffers() {
+void Swapchain::CreateFramebuffers() {
     m_framebuffer.resize(m_swapchain_imageviews.size());
 
     for (size_t i = 0; i < m_swapchain_imageviews.size(); i++) {
@@ -224,7 +227,7 @@ void RenderSwapchain::CreateFramebuffers() {
     }
 }
 
-void RenderSwapchain::CreateSyncObjects() {
+void Swapchain::CreateSyncObjects() {
     m_image_available_semaphores.resize(m_max_frames_inflight);
     m_render_finished_semaphores.resize(m_max_frames_inflight);
     m_in_flight_fences.resize(m_max_frames_inflight);
@@ -245,7 +248,7 @@ void RenderSwapchain::CreateSyncObjects() {
     }
 }
 
-auto RenderSwapchain::QuerySwapChainSupport(VkPhysicalDevice device) -> SwapChainSupportDetails {
+auto Swapchain::QuerySwapChainSupport(VkPhysicalDevice device) -> SwapChainSupportDetails {
     SwapChainSupportDetails details;
 
     auto *surface = m_render_device->GetSurface();
@@ -271,7 +274,7 @@ auto RenderSwapchain::QuerySwapChainSupport(VkPhysicalDevice device) -> SwapChai
     return details;
 }
 
-auto RenderSwapchain::ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &available_formats) -> VkSurfaceFormatKHR {
+auto Swapchain::ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &available_formats) -> VkSurfaceFormatKHR {
     for (const auto &available_format: available_formats) {
         if (available_format.format == VK_FORMAT_B8G8R8A8_SRGB && available_format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
             return available_format;
@@ -281,7 +284,7 @@ auto RenderSwapchain::ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatK
     return available_formats[0];
 }
 
-auto RenderSwapchain::ChooseSwapPresentMode(const std::vector<VkPresentModeKHR> &available_present_modes) -> VkPresentModeKHR {
+auto Swapchain::ChooseSwapPresentMode(const std::vector<VkPresentModeKHR> &available_present_modes) -> VkPresentModeKHR {
     for (const auto &available_present_mode: available_present_modes) {
         if (available_present_mode == VK_PRESENT_MODE_MAILBOX_KHR) {// 三重缓冲
             return available_present_mode;
@@ -291,7 +294,7 @@ auto RenderSwapchain::ChooseSwapPresentMode(const std::vector<VkPresentModeKHR> 
     return VK_PRESENT_MODE_FIFO_KHR;
 }
 
-auto RenderSwapchain::ChooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities) -> VkExtent2D {
+auto Swapchain::ChooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities) -> VkExtent2D {
     if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
         return capabilities.currentExtent;
     }
@@ -307,14 +310,14 @@ auto RenderSwapchain::ChooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilit
     return actual_extent;
 }
 
-auto RenderSwapchain::FindDepthFormat() -> VkFormat {
+auto Swapchain::FindDepthFormat() -> VkFormat {
     return FindSupportedFormat(
             {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
             VK_IMAGE_TILING_OPTIMAL,
             VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 }
 
-auto RenderSwapchain::FindSupportedFormat(const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features) -> VkFormat {
+auto Swapchain::FindSupportedFormat(const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features) -> VkFormat {
     for (VkFormat format: candidates) {
         VkFormatProperties props;
         vkGetPhysicalDeviceFormatProperties(m_render_device->GetPhyDevice(), format, &props);
@@ -328,6 +331,8 @@ auto RenderSwapchain::FindSupportedFormat(const std::vector<VkFormat> &candidate
     }
 
     throw std::runtime_error("failed to find supported format!");
+}
+
 }
 
 }// namespace saturn

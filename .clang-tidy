@@ -2,10 +2,6 @@
 # Here is an explanation for why some of the checks are disabled:
 #
 #
-#  -modernize-use-trailing-return-type: clang-tidy recommends using
-#      `auto Foo() -> std::string { return ...; }`, we think the code is less
-#      readable in this form.
-#
 #  --modernize-concat-nested-namespaces: clang-tidy recommends
 #      `namespace google::cloud {}` over `namespace google { namespace cloud { } }`
 #      We need to support C++14, which does not supported nested namespaces.

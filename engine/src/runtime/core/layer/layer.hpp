@@ -1,6 +1,6 @@
 #pragma once
 
-#include <runtime/core/event/core_event.hpp>
+#include <runtime/core/event/event.hpp>
 
 #include <engine_pch.hpp>
 

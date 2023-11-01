@@ -1,7 +1,10 @@
-#include "render_device.hpp"
+#include "device.hpp"
 
 namespace saturn {
-RenderDevice::RenderDevice(const std::string &engine_name, const std::string &game_name, std::shared_ptr<RenderWindow> window) : m_render_window(std::move(window)) {
+
+namespace rendering {
+
+Device::Device(const std::string &engine_name, const std::string &game_name, std::shared_ptr<Window> window) : m_render_window(std::move(window)) {
     CreateInstance(engine_name, game_name);
     CreateSurface();
     PickPhysicalDevice();
@@ -9,13 +12,13 @@ RenderDevice::RenderDevice(const std::string &engine_name, const std::string &ga
     CreateCommandPool();
 }
 
-RenderDevice::~RenderDevice() {
+Device::~Device() {
     vkDestroyCommandPool(m_device, m_command_pool, nullptr);
     vkDestroySurfaceKHR(m_vk_instance, m_surface, nullptr);
     vkDestroyDevice(m_device, nullptr);
 }
 
-void RenderDevice::CreateInstance(const std::string &engine_name, const std::string &game_name) {
+void Device::CreateInstance(const std::string &engine_name, const std::string &game_name) {
     if (m_enable_validation_layers && !IsValidationLayerSupport()) {
         throw std::runtime_error("validation layers requested, but not available!");
     }
@@ -87,13 +90,13 @@ void RenderDevice::CreateInstance(const std::string &engine_name, const std::str
     }
 }
 
-void RenderDevice::CreateSurface() {
+void Device::CreateSurface() {
     if (glfwCreateWindowSurface(m_vk_instance, m_render_window->GetGlfwWindow(), nullptr, &m_surface) != VK_SUCCESS) {
         throw std::runtime_error("failed to create window surface!");
     }
 }
 
-auto RenderDevice::IsValidationLayerSupport() -> bool {
+auto Device::IsValidationLayerSupport() -> bool {
     uint32_t layer_count;
     vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
 
@@ -118,7 +121,7 @@ auto RenderDevice::IsValidationLayerSupport() -> bool {
     return true;
 }
 
-void RenderDevice::PickPhysicalDevice() {
+void Device::PickPhysicalDevice() {
     uint32_t device_count = 0;
     vkEnumeratePhysicalDevices(m_vk_instance, &device_count, nullptr);
 
@@ -141,7 +144,7 @@ void RenderDevice::PickPhysicalDevice() {
     }
 }
 
-void RenderDevice::CreateLogicalDevice() {
+void Device::CreateLogicalDevice() {
     QueueFamilyIndices indices = FindQueueFamilies(m_physical_device);
 
     std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
@@ -186,7 +189,7 @@ void RenderDevice::CreateLogicalDevice() {
     vkGetDeviceQueue(m_device, indices.m_present_family.value(), 0, &m_present_queue);
 }
 
-auto RenderDevice::GetMaxUsableSampleCount() -> VkSampleCountFlagBits {
+auto Device::GetMaxUsableSampleCount() -> VkSampleCountFlagBits {
     VkPhysicalDeviceProperties physical_device_properties;
     vkGetPhysicalDeviceProperties(m_physical_device, &physical_device_properties);
 
@@ -201,7 +204,7 @@ auto RenderDevice::GetMaxUsableSampleCount() -> VkSampleCountFlagBits {
     return VK_SAMPLE_COUNT_1_BIT;
 }
 
-auto RenderDevice::GetRequiredExtensions() const -> std::vector<const char *> {
+auto Device::GetRequiredExtensions() const -> std::vector<const char *> {
     // 先获取GLFW需要的扩展
     uint32_t glfw_extension_count = 0;
     const char **glfw_extensions;
@@ -217,7 +220,7 @@ auto RenderDevice::GetRequiredExtensions() const -> std::vector<const char *> {
     return extensions;
 }
 
-auto RenderDevice::IsPhyDeviceSuitable(VkPhysicalDevice device) -> bool {
+auto Device::IsPhyDeviceSuitable(VkPhysicalDevice device) -> bool {
     QueueFamilyIndices indices = FindQueueFamilies(device);
 
     bool extensions_supported = CheckDeviceExtensionSupport(device);
@@ -234,7 +237,7 @@ auto RenderDevice::IsPhyDeviceSuitable(VkPhysicalDevice device) -> bool {
     return indices.IsComplete() && extensions_supported && swap_chain_adequate && (supported_features.samplerAnisotropy != 0u);
 }
 
-auto RenderDevice::FindQueueFamilies(VkPhysicalDevice device) -> QueueFamilyIndices {
+auto Device::FindQueueFamilies(VkPhysicalDevice device) -> QueueFamilyIndices {
     QueueFamilyIndices indices;
 
     uint32_t queue_family_count = 0;
@@ -266,7 +269,7 @@ auto RenderDevice::FindQueueFamilies(VkPhysicalDevice device) -> QueueFamilyIndi
     return indices;
 }
 
-void RenderDevice::CreateCommandPool() {
+void Device::CreateCommandPool() {
     QueueFamilyIndices queue_family_indices = FindQueueFamilies(m_physical_device);
 
     VkCommandPoolCreateInfo pool_info{};
@@ -279,7 +282,7 @@ void RenderDevice::CreateCommandPool() {
     }
 }
 
-auto RenderDevice::CheckDeviceExtensionSupport(VkPhysicalDevice device) -> bool {
+auto Device::CheckDeviceExtensionSupport(VkPhysicalDevice device) -> bool {
     uint32_t extension_count;
     vkEnumerateDeviceExtensionProperties(device, nullptr, &extension_count, nullptr);
 
@@ -295,7 +298,7 @@ auto RenderDevice::CheckDeviceExtensionSupport(VkPhysicalDevice device) -> bool 
     return required_extensions.empty();
 }
 
-auto RenderDevice::QuerySwapChainSupport(VkPhysicalDevice device) -> SwapChainSupportDetails {
+auto Device::QuerySwapChainSupport(VkPhysicalDevice device) -> SwapChainSupportDetails {
     SwapChainSupportDetails details;
 
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, m_surface, &details.capabilities);
@@ -319,7 +322,7 @@ auto RenderDevice::QuerySwapChainSupport(VkPhysicalDevice device) -> SwapChainSu
     return details;
 }
 
-void RenderDevice::CreateImage(uint32_t width, uint32_t height, uint32_t mip_levels, VkSampleCountFlagBits num_samples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage &image, VkDeviceMemory &image_memory) {
+void Device::CreateImage(uint32_t width, uint32_t height, uint32_t mip_levels, VkSampleCountFlagBits num_samples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage &image, VkDeviceMemory &image_memory) {
     VkImageCreateInfo image_info{};
     image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     image_info.imageType = VK_IMAGE_TYPE_2D;
@@ -354,7 +357,7 @@ void RenderDevice::CreateImage(uint32_t width, uint32_t height, uint32_t mip_lev
     vkBindImageMemory(m_device, image, image_memory, 0);
 }
 
-void RenderDevice::CreateBuffer(VkDeviceSize size,
+void Device::CreateBuffer(VkDeviceSize size,
                                 VkBufferUsageFlags usage,
                                 VkMemoryPropertyFlags properties,
                                 VkBuffer &buffer,
@@ -388,7 +391,33 @@ void RenderDevice::CreateBuffer(VkDeviceSize size,
     vkBindBufferMemory(m_device, buffer, buffer_memory, 0);
 }
 
-auto RenderDevice::CreateImageView(VkImage image, VkFormat format, VkImageAspectFlags aspect_flags, uint32_t mip_levels) -> VkImageView {
+void Device::CreateImageWithInfo(const VkImageCreateInfo &image_info,
+                                       VkMemoryPropertyFlags properties,
+                                       VkImage &image,
+                                       VkDeviceMemory &image_memory) {
+
+    if (vkCreateImage(m_device, &image_info, nullptr, &image) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create image!");
+    }
+
+    VkMemoryRequirements mem_requirements;
+    vkGetImageMemoryRequirements(m_device, image, &mem_requirements);
+
+    VkMemoryAllocateInfo alloc_info{};
+    alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    alloc_info.allocationSize = mem_requirements.size;
+    alloc_info.memoryTypeIndex = FindMemoryType(mem_requirements.memoryTypeBits, properties);
+
+    if (vkAllocateMemory(m_device, &alloc_info, nullptr, &image_memory) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate image memory!");
+    }
+
+    if (vkBindImageMemory(m_device, image, image_memory, 0) != VK_SUCCESS) {
+        throw std::runtime_error("failed to bind image memory!");
+    }
+}
+
+auto Device::CreateImageView(VkImage image, VkFormat format, VkImageAspectFlags aspect_flags, uint32_t mip_levels) -> VkImageView {
     VkImageViewCreateInfo view_info{};
     view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     view_info.image = image;
@@ -408,7 +437,7 @@ auto RenderDevice::CreateImageView(VkImage image, VkFormat format, VkImageAspect
     return image_view;
 }
 
-auto RenderDevice::FindMemoryType(uint32_t type_filter, VkMemoryPropertyFlags properties) -> uint32_t {
+auto Device::FindMemoryType(uint32_t type_filter, VkMemoryPropertyFlags properties) -> uint32_t {
     VkPhysicalDeviceMemoryProperties mem_properties;
     vkGetPhysicalDeviceMemoryProperties(m_physical_device, &mem_properties);
 
@@ -435,5 +464,8 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT
         func(instance, debug_messenger, p_allocator);
     }
 }
+
+
+}  // namespace rendering
 
 }// namespace saturn
