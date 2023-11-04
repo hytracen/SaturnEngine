@@ -17,7 +17,7 @@ Swapchain::Swapchain(std::shared_ptr<Device> render_device) : m_render_device(st
 }
 
 Swapchain::Swapchain(std::shared_ptr<Device> render_device, std::shared_ptr<Swapchain> old_swapchain)
-                                 : m_render_device(std::move(render_device)), m_old_swapchain(std::move(old_swapchain)) {
+    : m_render_device(std::move(render_device)), m_old_swapchain(std::move(old_swapchain)) {
     CreateSwapchain();
     CreateImageViews();
     CreateRenderPass();
@@ -56,6 +56,14 @@ Swapchain::~Swapchain() {
     vkDestroySwapchainKHR(m_render_device->GetVkDevice(), m_swapchain, nullptr);
 }
 
+auto Swapchain::AcquireNextImage(uint32_t swapchain_frame_index) -> std::pair<VkResult, uint32_t> {
+    uint32_t image_index;
+    VkResult result =
+            vkAcquireNextImageKHR(m_render_device->GetVkDevice(), m_swapchain, UINT64_MAX,
+                                  m_image_available_semaphores[swapchain_frame_index], VK_NULL_HANDLE, &image_index);
+    return {result, image_index};
+}
+
 void Swapchain::CreateSwapchain() {
     SwapChainSupportDetails swap_chain_support = QuerySwapChainSupport(m_render_device->GetPhyDevice());
 
@@ -64,7 +72,8 @@ void Swapchain::CreateSwapchain() {
     VkExtent2D extent = ChooseSwapExtent(swap_chain_support.capabilities);
 
     uint32_t image_count = swap_chain_support.capabilities.minImageCount + 1;
-    if (swap_chain_support.capabilities.maxImageCount > 0 && image_count > swap_chain_support.capabilities.maxImageCount) {
+    if (swap_chain_support.capabilities.maxImageCount > 0 &&
+        image_count > swap_chain_support.capabilities.maxImageCount) {
         image_count = swap_chain_support.capabilities.maxImageCount;
     }
 
@@ -112,7 +121,8 @@ void Swapchain::CreateImageViews() {
     m_swapchain_imageviews.resize(m_swapchain_images.size());
 
     for (uint32_t i = 0; i < m_swapchain_images.size(); i++) {
-        m_swapchain_imageviews[i] = m_render_device->CreateImageView(m_swapchain_images[i], m_swapchain_image_format, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+        m_swapchain_imageviews[i] = m_render_device->CreateImageView(m_swapchain_images[i], m_swapchain_image_format,
+                                                                     VK_IMAGE_ASPECT_COLOR_BIT, 1);
     }
 }
 
@@ -171,7 +181,8 @@ void Swapchain::CreateRenderPass() {
     dependency.dstSubpass = 0;
     dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
     dependency.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    dependency.dstStageMask =
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
     dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
     std::array<VkAttachmentDescription, 3> attachments = {color_attachment, depth_attachment, color_attachment_resolve};
@@ -192,14 +203,20 @@ void Swapchain::CreateRenderPass() {
 void Swapchain::CreateDepthResources() {
     VkFormat depth_format = FindDepthFormat();
 
-    m_render_device->CreateImage(m_swapchain_extent.width, m_swapchain_extent.height, 1, m_render_device->GetMaxMsaaSamples(), depth_format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_depth_image, m_depth_image_memory);
+    m_render_device->CreateImage(m_swapchain_extent.width, m_swapchain_extent.height, 1,
+                                 m_render_device->GetMaxMsaaSamples(), depth_format, VK_IMAGE_TILING_OPTIMAL,
+                                 VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                                 m_depth_image, m_depth_image_memory);
     m_depth_imageview = m_render_device->CreateImageView(m_depth_image, depth_format, VK_IMAGE_ASPECT_DEPTH_BIT, 1);
 }
 
 void Swapchain::CreateColorResources() {
     VkFormat color_format = m_swapchain_image_format;
 
-    m_render_device->CreateImage(m_swapchain_extent.width, m_swapchain_extent.height, 1, m_render_device->GetMaxMsaaSamples(), color_format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_color_image, m_color_image_memory);
+    m_render_device->CreateImage(m_swapchain_extent.width, m_swapchain_extent.height, 1,
+                                 m_render_device->GetMaxMsaaSamples(), color_format, VK_IMAGE_TILING_OPTIMAL,
+                                 VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+                                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_color_image, m_color_image_memory);
     m_color_imageview = m_render_device->CreateImageView(m_color_image, color_format, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 }
 
@@ -207,10 +224,7 @@ void Swapchain::CreateFramebuffers() {
     m_framebuffer.resize(m_swapchain_imageviews.size());
 
     for (size_t i = 0; i < m_swapchain_imageviews.size(); i++) {
-        std::array<VkImageView, 3> attachments = {
-                m_color_imageview,
-                m_depth_imageview,
-                m_swapchain_imageviews[i]};
+        std::array<VkImageView, 3> attachments = {m_color_imageview, m_depth_imageview, m_swapchain_imageviews[i]};
 
         VkFramebufferCreateInfo framebuffer_info{};
         framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -221,7 +235,8 @@ void Swapchain::CreateFramebuffers() {
         framebuffer_info.height = m_swapchain_extent.height;
         framebuffer_info.layers = 1;
 
-        if (vkCreateFramebuffer(m_render_device->GetVkDevice(), &framebuffer_info, nullptr, &m_framebuffer[i]) != VK_SUCCESS) {
+        if (vkCreateFramebuffer(m_render_device->GetVkDevice(), &framebuffer_info, nullptr, &m_framebuffer[i]) !=
+            VK_SUCCESS) {
             throw std::runtime_error("failed to create framebuffer!");
         }
     }
@@ -240,8 +255,10 @@ void Swapchain::CreateSyncObjects() {
     fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
     for (size_t i = 0; i < m_max_frames_inflight; i++) {
-        if (vkCreateSemaphore(m_render_device->GetVkDevice(), &semaphore_info, nullptr, &m_image_available_semaphores[i]) != VK_SUCCESS ||
-            vkCreateSemaphore(m_render_device->GetVkDevice(), &semaphore_info, nullptr, &m_render_finished_semaphores[i]) != VK_SUCCESS ||
+        if (vkCreateSemaphore(m_render_device->GetVkDevice(), &semaphore_info, nullptr,
+                              &m_image_available_semaphores[i]) != VK_SUCCESS ||
+            vkCreateSemaphore(m_render_device->GetVkDevice(), &semaphore_info, nullptr,
+                              &m_render_finished_semaphores[i]) != VK_SUCCESS ||
             vkCreateFence(m_render_device->GetVkDevice(), &fence_info, nullptr, &m_in_flight_fences[i]) != VK_SUCCESS) {
             throw std::runtime_error("failed to create synchronization objects for a frame!");
         }
@@ -274,9 +291,11 @@ auto Swapchain::QuerySwapChainSupport(VkPhysicalDevice device) -> SwapChainSuppo
     return details;
 }
 
-auto Swapchain::ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &available_formats) -> VkSurfaceFormatKHR {
+auto Swapchain::ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &available_formats)
+        -> VkSurfaceFormatKHR {
     for (const auto &available_format: available_formats) {
-        if (available_format.format == VK_FORMAT_B8G8R8A8_SRGB && available_format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+        if (available_format.format == VK_FORMAT_B8G8R8A8_SRGB &&
+            available_format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
             return available_format;
         }
     }
@@ -284,7 +303,8 @@ auto Swapchain::ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &a
     return available_formats[0];
 }
 
-auto Swapchain::ChooseSwapPresentMode(const std::vector<VkPresentModeKHR> &available_present_modes) -> VkPresentModeKHR {
+auto Swapchain::ChooseSwapPresentMode(const std::vector<VkPresentModeKHR> &available_present_modes)
+        -> VkPresentModeKHR {
     for (const auto &available_present_mode: available_present_modes) {
         if (available_present_mode == VK_PRESENT_MODE_MAILBOX_KHR) {// 三重缓冲
             return available_present_mode;
@@ -295,36 +315,33 @@ auto Swapchain::ChooseSwapPresentMode(const std::vector<VkPresentModeKHR> &avail
 }
 
 auto Swapchain::ChooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities) -> VkExtent2D {
-    if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
-        return capabilities.currentExtent;
-    }
+    if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) { return capabilities.currentExtent; }
     int width{};
     int height{};
     glfwGetFramebufferSize(m_render_device->GetRenderWindow()->GetGlfwWindow(), &width, &height);
 
     VkExtent2D actual_extent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
 
-    actual_extent.width = std::clamp(actual_extent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
-    actual_extent.height = std::clamp(actual_extent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
+    actual_extent.width =
+            std::clamp(actual_extent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
+    actual_extent.height =
+            std::clamp(actual_extent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
 
     return actual_extent;
 }
 
 auto Swapchain::FindDepthFormat() -> VkFormat {
-    return FindSupportedFormat(
-            {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
-            VK_IMAGE_TILING_OPTIMAL,
-            VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+    return FindSupportedFormat({VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
+                               VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 }
 
-auto Swapchain::FindSupportedFormat(const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features) -> VkFormat {
+auto Swapchain::FindSupportedFormat(const std::vector<VkFormat> &candidates, VkImageTiling tiling,
+                                    VkFormatFeatureFlags features) -> VkFormat {
     for (VkFormat format: candidates) {
         VkFormatProperties props;
         vkGetPhysicalDeviceFormatProperties(m_render_device->GetPhyDevice(), format, &props);
 
-        if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
-            return format;
-        }
+        if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) { return format; }
         if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
             return format;
         }
@@ -333,6 +350,6 @@ auto Swapchain::FindSupportedFormat(const std::vector<VkFormat> &candidates, VkI
     throw std::runtime_error("failed to find supported format!");
 }
 
-}
+}// namespace rendering
 
 }// namespace saturn

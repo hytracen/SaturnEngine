@@ -33,7 +33,7 @@ public:
     std::vector<uint32_t> m_indices{};
 };
 
-}
+}  // namespace resource
 
 template<typename T, typename... Rest>
 void HashCombine(std::size_t &seed, const T &v, const Rest &...rest) {

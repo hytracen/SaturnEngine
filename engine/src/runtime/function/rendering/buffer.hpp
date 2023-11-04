@@ -36,6 +36,7 @@ public:
 
     void CopyToBuffer(std::shared_ptr<Buffer> target_buffer);
     void CopyToImage(std::shared_ptr<Image> target_image, uint32_t width, uint32_t height);
+    void CopyToImage(VkImage target_vk_image, uint32_t width, uint32_t height);
 
     [[nodiscard]] auto GetVkBuffer() const -> VkBuffer { return m_buffer; }
     [[nodiscard]] auto GetMappedMemory() const -> void * { return m_mapped_memory; }

@@ -63,8 +63,8 @@ public:
     void CreateImageWithInfo(const VkImageCreateInfo &image_info, VkMemoryPropertyFlags properties, VkImage &image,
                              VkDeviceMemory &image_memory);
 
-
     auto FindPhysicalQueueFamilies() -> QueueFamilyIndices { return FindQueueFamilies(m_physical_device); }
+    auto FindMemoryType(uint32_t type_filter, VkMemoryPropertyFlags properties) -> uint32_t;
 
 private:
     // Not copyable or movable
@@ -77,9 +77,6 @@ private:
     void CreateLogicalDevice();
     void CreateCommandPool();
 
-
-    VkPhysicalDeviceProperties properties;
-
     auto GetMaxUsableSampleCount() -> VkSampleCountFlagBits;
     auto IsValidationLayerSupport() -> bool;
 
@@ -90,7 +87,6 @@ private:
     auto CheckDeviceExtensionSupport(VkPhysicalDevice device) -> bool;
     auto QuerySwapChainSupport(VkPhysicalDevice device) -> SwapChainSupportDetails;
     auto GetSwapChainSupport() -> SwapChainSupportDetails { return QuerySwapChainSupport(m_physical_device); }
-    auto FindMemoryType(uint32_t type_filter, VkMemoryPropertyFlags properties) -> uint32_t;
     auto FindSupportedFormat(const std::vector<VkFormat> &candidates, VkImageTiling tiling,
                              VkFormatFeatureFlags features) -> VkFormat;
 

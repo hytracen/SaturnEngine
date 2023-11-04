@@ -2,6 +2,7 @@
 // std
 #include <cassert>
 #include <cstring>
+#include <utility>
 
 namespace saturn {
 
@@ -21,9 +22,9 @@ auto Buffer::CalculateAlignment(VkDeviceSize instance_size, VkDeviceSize min_off
     return instance_size;
 }
 
-Buffer::Buffer(std::shared_ptr<Device> render_device, VkDeviceSize instance_size,
-                           uint32_t instance_count, VkBufferUsageFlags usage_flags,
-                           VkMemoryPropertyFlags memory_property_flags, VkDeviceSize min_offset_alignment)
+Buffer::Buffer(std::shared_ptr<Device> render_device, VkDeviceSize instance_size, uint32_t instance_count,
+               VkBufferUsageFlags usage_flags, VkMemoryPropertyFlags memory_property_flags,
+               VkDeviceSize min_offset_alignment)
     : m_render_device{std::move(render_device)}, m_instance_size{instance_size}, m_instance_count{instance_count},
       usageFlags{usage_flags}, memoryPropertyFlags{memory_property_flags} {
 
@@ -141,9 +142,7 @@ auto Buffer::CreateDescriptorBufferInfo(VkDeviceSize size, VkDeviceSize offset) 
  * @param index Used in offset calculation
  *
  */
-void Buffer::WriteToIndex(void *data, int index) {
-    WriteToBuffer(data, m_instance_size, index * m_alignment_size);
-}
+void Buffer::WriteToIndex(void *data, int index) { WriteToBuffer(data, m_instance_size, index * m_alignment_size); }
 
 /**
  *  Flush the memory range at index * alignmentSize of the buffer to make it visible to the device
@@ -173,9 +172,7 @@ auto Buffer::CreateDescriptorBufferInfoForIndex(int index) -> VkDescriptorBuffer
  *
  * @return VkResult of the invalidate call
  */
-auto Buffer::InvalidateIndex(int index) -> VkResult {
-    return Invalidate(m_alignment_size, index * m_alignment_size);
-}
+auto Buffer::InvalidateIndex(int index) -> VkResult { return Invalidate(m_alignment_size, index * m_alignment_size); }
 
 void Buffer::CopyToBuffer(std::shared_ptr<Buffer> target_buffer) {
     CommandsBuilder cmd_builder{m_render_device};
@@ -189,6 +186,10 @@ void Buffer::CopyToBuffer(std::shared_ptr<Buffer> target_buffer) {
 }
 
 void Buffer::CopyToImage(std::shared_ptr<Image> target_image, uint32_t width, uint32_t height) {
+    CopyToImage(target_image->GetVkImage(), width, height);
+}
+
+void Buffer::CopyToImage(VkImage target_vk_image, uint32_t width, uint32_t height) {
     CommandsBuilder cmd_buffer_builder{m_render_device};
     cmd_buffer_builder.AllocateCommandBuffers(1).BeginRecord();
 
@@ -205,7 +206,7 @@ void Buffer::CopyToImage(std::shared_ptr<Image> target_image, uint32_t width, ui
     region.imageOffset = {0, 0, 0};
     region.imageExtent = {width, height, 1};
 
-    vkCmdCopyBufferToImage(cmd_buffer_builder.GetCurrentCommandBuffer(), m_buffer, target_image->GetVkImage(),
+    vkCmdCopyBufferToImage(cmd_buffer_builder.GetCurrentCommandBuffer(), m_buffer, target_vk_image,
                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
     cmd_buffer_builder.EndRecord().SubmitTo(m_render_device->GetGraphicsQueue());

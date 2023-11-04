@@ -17,6 +17,8 @@ public:
     auto InFlightFences() -> std::vector<VkFence> & { return m_in_flight_fences; }
 
     auto GetRenderPass() -> VkRenderPass { return m_renderpass; }
+    [[nodiscard]] auto GetFramebuffer() -> std::vector<VkFramebuffer>& { return m_framebuffer; }
+    [[nodiscard]] auto GetMaxFramesInFlight() const -> int { return m_max_frames_inflight; }
 
     auto ColorImage() -> VkImage { return m_color_image; }
     auto ColorImageMemory() -> VkDeviceMemory { return m_color_image_memory; }
@@ -29,7 +31,7 @@ public:
     auto VkSwapchain() -> VkSwapchainKHR { return m_swapchain; }
     auto Extent() -> VkExtent2D { return m_swapchain_extent; }
 
-    auto GetFramebuffer() -> std::vector<VkFramebuffer>& { return m_framebuffer; }
+    auto AcquireNextImage(uint32_t swapchain_frame_index) -> std::pair<VkResult, uint32_t>;
 
     const int m_max_frames_inflight = 2;
 
