@@ -93,6 +93,7 @@ private:
     VkInstance m_vk_instance;
     VkDebugUtilsMessengerEXT m_debug_messenger;
     std::vector<const char *> m_validation_layers{"VK_LAYER_KHRONOS_validation"};
+    std::vector<const char *> m_device_extensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_MAINTENANCE_1_EXTENSION_NAME};
 
     std::shared_ptr<Window> m_render_window;
     VkSampleCountFlagBits m_msaa_samples_flag = VK_SAMPLE_COUNT_1_BIT;// 最大支持的采样数
@@ -112,7 +113,6 @@ private:
     const bool m_enable_validation_layers = false;
 #endif
 
-    const std::vector<const char *> m_device_extensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 };
 
 auto CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *p_create_info,

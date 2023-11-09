@@ -6,66 +6,60 @@ namespace saturn {
 
 namespace rendering {
 
-Swapchain::Swapchain(std::shared_ptr<Device> render_device) : m_render_device(std::move(render_device)) {
-    CreateSwapchain();
-    CreateImageViews();
-    CreateRenderPass();
-    CreateColorResources();
-    CreateDepthResources();
-    CreateFramebuffers();
-    CreateSyncObjects();
-}
+Swapchain::Swapchain(std::shared_ptr<Device> render_device) : m_device(std::move(render_device)) { Init(); }
 
 Swapchain::Swapchain(std::shared_ptr<Device> render_device, std::shared_ptr<Swapchain> old_swapchain)
-    : m_render_device(std::move(render_device)), m_old_swapchain(std::move(old_swapchain)) {
-    CreateSwapchain();
-    CreateImageViews();
-    CreateRenderPass();
-    CreateColorResources();
-    CreateDepthResources();
-    CreateFramebuffers();
-    CreateSyncObjects();
+    : m_device(std::move(render_device)), m_old_swapchain(std::move(old_swapchain)) {
+    Init();
     m_old_swapchain.reset();
 }
 
+void Swapchain::Init() {
+    CreateSwapchain();
+    CreateImageViews();
+    CreateShadingRenderPass();
+    CreateOffscreenRenderPass();
+    CreateColorResources();
+    CreateDepthResources();
+    CreateFramebuffers();
+    CreateSyncObjects();
+}
+
 Swapchain::~Swapchain() {
-    vkDestroyImageView(m_render_device->GetVkDevice(), m_depth_imageview, nullptr);
-    vkDestroyImage(m_render_device->GetVkDevice(), m_depth_image, nullptr);
-    vkFreeMemory(m_render_device->GetVkDevice(), m_depth_image_memory, nullptr);
-
-    vkDestroyImageView(m_render_device->GetVkDevice(), m_color_imageview, nullptr);
-    vkDestroyImage(m_render_device->GetVkDevice(), m_color_image, nullptr);
-    vkFreeMemory(m_render_device->GetVkDevice(), m_color_image_memory, nullptr);
-
     for (auto *framebuffer: m_framebuffer) {
-        vkDestroyFramebuffer(m_render_device->GetVkDevice(), framebuffer, nullptr);
+        vkDestroyFramebuffer(m_device->GetVkDevice(), framebuffer, nullptr);
+    }
+
+    for (auto *offscreen_framebuffer: m_offscreen_framebuffer) {
+        vkDestroyFramebuffer(m_device->GetVkDevice(), offscreen_framebuffer, nullptr);
     }
 
     for (auto *image_view: m_swapchain_imageviews) {
-        vkDestroyImageView(m_render_device->GetVkDevice(), image_view, nullptr);
+        vkDestroyImageView(m_device->GetVkDevice(), image_view, nullptr);
     }
 
     for (size_t i = 0; i < m_max_frames_inflight; i++) {
-        vkDestroySemaphore(m_render_device->GetVkDevice(), m_render_finished_semaphores[i], nullptr);
-        vkDestroySemaphore(m_render_device->GetVkDevice(), m_image_available_semaphores[i], nullptr);
-        vkDestroyFence(m_render_device->GetVkDevice(), m_in_flight_fences[i], nullptr);
+        vkDestroySemaphore(m_device->GetVkDevice(), m_render_finished_semaphores[i], nullptr);
+        vkDestroySemaphore(m_device->GetVkDevice(), m_image_available_semaphores[i], nullptr);
+        vkDestroyFence(m_device->GetVkDevice(), m_in_flight_fences[i], nullptr);
     }
 
-    vkDestroyRenderPass(m_render_device->GetVkDevice(), m_renderpass, nullptr);
+    vkDestroyRenderPass(m_device->GetVkDevice(), m_shading_renderpass, nullptr);
+    vkDestroyRenderPass(m_device->GetVkDevice(), m_offscreen_renderpass, nullptr);
 
-    vkDestroySwapchainKHR(m_render_device->GetVkDevice(), m_swapchain, nullptr);
+    vkDestroySwapchainKHR(m_device->GetVkDevice(), m_vk_swapchain, nullptr);
 }
 
 auto Swapchain::AcquireNextImage(uint32_t swapchain_frame_index) -> std::pair<VkResult, uint32_t> {
     uint32_t image_index;
     VkResult result =
-            vkAcquireNextImageKHR(m_render_device->GetVkDevice(), m_swapchain, UINT64_MAX,
+            vkAcquireNextImageKHR(m_device->GetVkDevice(), m_vk_swapchain, UINT64_MAX,
                                   m_image_available_semaphores[swapchain_frame_index], VK_NULL_HANDLE, &image_index);
     return {result, image_index};
 }
 
 void Swapchain::CreateSwapchain() {
-    SwapChainSupportDetails swap_chain_support = QuerySwapChainSupport(m_render_device->GetPhyDevice());
+    SwapChainSupportDetails swap_chain_support = QuerySwapChainSupport(m_device->GetPhyDevice());
 
     VkSurfaceFormatKHR surface_format = ChooseSwapSurfaceFormat(swap_chain_support.formats);
     VkPresentModeKHR present_mode = ChooseSwapPresentMode(swap_chain_support.presentModes);
@@ -79,7 +73,7 @@ void Swapchain::CreateSwapchain() {
 
     VkSwapchainCreateInfoKHR create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-    create_info.surface = m_render_device->GetSurface();
+    create_info.surface = m_device->GetSurface();
 
     create_info.minImageCount = image_count;
     create_info.imageFormat = surface_format.format;
@@ -88,7 +82,7 @@ void Swapchain::CreateSwapchain() {
     create_info.imageArrayLayers = 1;
     create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-    QueueFamilyIndices indices = m_render_device->FindPhysicalQueueFamilies();
+    QueueFamilyIndices indices = m_device->FindPhysicalQueueFamilies();
     uint32_t queue_family_indices[] = {indices.m_graphics_family.value(), indices.m_present_family.value()};
 
     if (indices.m_graphics_family != indices.m_present_family) {
@@ -105,13 +99,13 @@ void Swapchain::CreateSwapchain() {
     create_info.clipped = VK_TRUE;
     create_info.oldSwapchain = m_old_swapchain == nullptr ? VK_NULL_HANDLE : m_old_swapchain->VkSwapchain();
 
-    if (vkCreateSwapchainKHR(m_render_device->GetVkDevice(), &create_info, nullptr, &m_swapchain) != VK_SUCCESS) {
+    if (vkCreateSwapchainKHR(m_device->GetVkDevice(), &create_info, nullptr, &m_vk_swapchain) != VK_SUCCESS) {
         throw std::runtime_error("failed to create swap chain!");
     }
 
-    vkGetSwapchainImagesKHR(m_render_device->GetVkDevice(), m_swapchain, &image_count, nullptr);
+    vkGetSwapchainImagesKHR(m_device->GetVkDevice(), m_vk_swapchain, &image_count, nullptr);
     m_swapchain_images.resize(image_count);
-    vkGetSwapchainImagesKHR(m_render_device->GetVkDevice(), m_swapchain, &image_count, m_swapchain_images.data());
+    vkGetSwapchainImagesKHR(m_device->GetVkDevice(), m_vk_swapchain, &image_count, m_swapchain_images.data());
 
     m_swapchain_image_format = surface_format.format;
     m_swapchain_extent = extent;
@@ -121,15 +115,15 @@ void Swapchain::CreateImageViews() {
     m_swapchain_imageviews.resize(m_swapchain_images.size());
 
     for (uint32_t i = 0; i < m_swapchain_images.size(); i++) {
-        m_swapchain_imageviews[i] = m_render_device->CreateImageView(m_swapchain_images[i], m_swapchain_image_format,
+        m_swapchain_imageviews[i] = m_device->CreateImageView(m_swapchain_images[i], m_swapchain_image_format,
                                                                      VK_IMAGE_ASPECT_COLOR_BIT, 1);
     }
 }
 
-void Swapchain::CreateRenderPass() {
+void Swapchain::CreateShadingRenderPass() {
     VkAttachmentDescription color_attachment{};
     color_attachment.format = m_swapchain_image_format;
-    color_attachment.samples = m_render_device->GetMaxMsaaSamples();
+    color_attachment.samples = m_device->GetMaxMsaaSamples();
     color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -139,7 +133,7 @@ void Swapchain::CreateRenderPass() {
 
     VkAttachmentDescription depth_attachment{};
     depth_attachment.format = FindDepthFormat();
-    depth_attachment.samples = m_render_device->GetMaxMsaaSamples();
+    depth_attachment.samples = m_device->GetMaxMsaaSamples();
     depth_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     depth_attachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     depth_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -195,7 +189,51 @@ void Swapchain::CreateRenderPass() {
     render_pass_info.dependencyCount = 1;
     render_pass_info.pDependencies = &dependency;
 
-    if (vkCreateRenderPass(m_render_device->GetVkDevice(), &render_pass_info, nullptr, &m_renderpass) != VK_SUCCESS) {
+    if (vkCreateRenderPass(m_device->GetVkDevice(), &render_pass_info, nullptr, &m_shading_renderpass) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create render pass!");
+    }
+}
+
+void Swapchain::CreateOffscreenRenderPass() {
+    VkAttachmentDescription depth_attachment{};
+    depth_attachment.format = FindDepthFormat();
+    depth_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    depth_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depth_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    depth_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    depth_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depth_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    depth_attachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    VkAttachmentReference depth_attachment_ref{};
+    depth_attachment_ref.attachment = 0;
+    depth_attachment_ref.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    VkSubpassDescription subpass{};
+    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.pDepthStencilAttachment = &depth_attachment_ref;
+
+    VkSubpassDependency dependency{};
+    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependency.dstSubpass = 0;
+    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    dependency.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    dependency.dstStageMask =
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+    std::array<VkAttachmentDescription, 1> attachments = {depth_attachment};
+    VkRenderPassCreateInfo render_pass_info{};
+    render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    render_pass_info.attachmentCount = static_cast<uint32_t>(attachments.size());
+    render_pass_info.pAttachments = attachments.data();
+    render_pass_info.subpassCount = 1;
+    render_pass_info.pSubpasses = &subpass;
+    render_pass_info.dependencyCount = 1;
+    render_pass_info.pDependencies = &dependency;
+
+    if (vkCreateRenderPass(m_device->GetVkDevice(), &render_pass_info, nullptr, &m_offscreen_renderpass) !=
+        VK_SUCCESS) {
         throw std::runtime_error("failed to create render pass!");
     }
 }
@@ -203,41 +241,81 @@ void Swapchain::CreateRenderPass() {
 void Swapchain::CreateDepthResources() {
     VkFormat depth_format = FindDepthFormat();
 
-    m_render_device->CreateImage(m_swapchain_extent.width, m_swapchain_extent.height, 1,
-                                 m_render_device->GetMaxMsaaSamples(), depth_format, VK_IMAGE_TILING_OPTIMAL,
-                                 VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-                                 m_depth_image, m_depth_image_memory);
-    m_depth_imageview = m_render_device->CreateImageView(m_depth_image, depth_format, VK_IMAGE_ASPECT_DEPTH_BIT, 1);
+    {
+        m_depth_image = std::make_shared<Image>(m_device, m_swapchain_extent.width, m_swapchain_extent.height, 1,
+                                                m_device->GetMaxMsaaSamples(), depth_format,
+                                                VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+                                                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        m_depth_image->CreateImageView(VK_IMAGE_ASPECT_DEPTH_BIT);
+    }
+
+    {
+        m_shadowmap_image =
+                std::make_shared<Image>(m_device, 4096, 4096, 1,
+                                        VK_SAMPLE_COUNT_1_BIT, depth_format, VK_IMAGE_TILING_OPTIMAL,
+                                        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                                        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        m_shadowmap_image->CreateImageView(VK_IMAGE_ASPECT_DEPTH_BIT);
+    }
 }
 
 void Swapchain::CreateColorResources() {
     VkFormat color_format = m_swapchain_image_format;
 
-    m_render_device->CreateImage(m_swapchain_extent.width, m_swapchain_extent.height, 1,
-                                 m_render_device->GetMaxMsaaSamples(), color_format, VK_IMAGE_TILING_OPTIMAL,
-                                 VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_color_image, m_color_image_memory);
-    m_color_imageview = m_render_device->CreateImageView(m_color_image, color_format, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+    m_color_image =
+            std::make_shared<Image>(m_device, m_swapchain_extent.width, m_swapchain_extent.height, 1,
+                                    m_device->GetMaxMsaaSamples(), color_format, VK_IMAGE_TILING_OPTIMAL,
+                                    VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+                                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    m_color_image->CreateImageView(VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
 void Swapchain::CreateFramebuffers() {
-    m_framebuffer.resize(m_swapchain_imageviews.size());
+    // shadowmap
+    {
+        m_offscreen_framebuffer.resize(m_swapchain_imageviews.size());
 
-    for (size_t i = 0; i < m_swapchain_imageviews.size(); i++) {
-        std::array<VkImageView, 3> attachments = {m_color_imageview, m_depth_imageview, m_swapchain_imageviews[i]};
+        for (size_t i = 0; i < m_swapchain_imageviews.size(); i++) {
+            std::vector<VkImageView> attachments = {m_shadowmap_image->GetVkImageView()};
 
-        VkFramebufferCreateInfo framebuffer_info{};
-        framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        framebuffer_info.renderPass = m_renderpass;
-        framebuffer_info.attachmentCount = static_cast<uint32_t>(attachments.size());
-        framebuffer_info.pAttachments = attachments.data();
-        framebuffer_info.width = m_swapchain_extent.width;
-        framebuffer_info.height = m_swapchain_extent.height;
-        framebuffer_info.layers = 1;
+            VkFramebufferCreateInfo framebuffer_info{};
+            framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+            framebuffer_info.renderPass = m_offscreen_renderpass;
+            framebuffer_info.attachmentCount = static_cast<uint32_t>(attachments.size());
+            framebuffer_info.pAttachments = attachments.data();
+            framebuffer_info.width = m_shadowmap_image->GetImageInfo().m_width;
+            framebuffer_info.height = m_shadowmap_image->GetImageInfo().m_height;
+            framebuffer_info.layers = 1;
 
-        if (vkCreateFramebuffer(m_render_device->GetVkDevice(), &framebuffer_info, nullptr, &m_framebuffer[i]) !=
-            VK_SUCCESS) {
-            throw std::runtime_error("failed to create framebuffer!");
+            if (vkCreateFramebuffer(m_device->GetVkDevice(), &framebuffer_info, nullptr,
+                                    &m_offscreen_framebuffer[i]) != VK_SUCCESS) {
+                throw std::runtime_error("failed to create framebuffer!");
+            }
+        }
+    }
+
+    // shading
+    {
+        m_framebuffer.resize(m_swapchain_imageviews.size());
+
+        for (size_t i = 0; i < m_swapchain_imageviews.size(); i++) {
+            std::vector<VkImageView> attachments = {m_color_image->GetVkImageView(), m_depth_image->GetVkImageView(),
+                                                    m_swapchain_imageviews[i]};
+
+            VkFramebufferCreateInfo framebuffer_info{};
+            framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+            framebuffer_info.renderPass = m_shading_renderpass;
+            framebuffer_info.attachmentCount = static_cast<uint32_t>(attachments.size());
+            framebuffer_info.pAttachments = attachments.data();
+            framebuffer_info.width = m_swapchain_extent.width;
+            framebuffer_info.height = m_swapchain_extent.height;
+            framebuffer_info.layers = 1;
+
+            if (vkCreateFramebuffer(m_device->GetVkDevice(), &framebuffer_info, nullptr, &m_framebuffer[i]) !=
+                VK_SUCCESS) {
+                throw std::runtime_error("failed to create framebuffer!");
+            }
         }
     }
 }
@@ -255,11 +333,11 @@ void Swapchain::CreateSyncObjects() {
     fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
     for (size_t i = 0; i < m_max_frames_inflight; i++) {
-        if (vkCreateSemaphore(m_render_device->GetVkDevice(), &semaphore_info, nullptr,
+        if (vkCreateSemaphore(m_device->GetVkDevice(), &semaphore_info, nullptr,
                               &m_image_available_semaphores[i]) != VK_SUCCESS ||
-            vkCreateSemaphore(m_render_device->GetVkDevice(), &semaphore_info, nullptr,
+            vkCreateSemaphore(m_device->GetVkDevice(), &semaphore_info, nullptr,
                               &m_render_finished_semaphores[i]) != VK_SUCCESS ||
-            vkCreateFence(m_render_device->GetVkDevice(), &fence_info, nullptr, &m_in_flight_fences[i]) != VK_SUCCESS) {
+            vkCreateFence(m_device->GetVkDevice(), &fence_info, nullptr, &m_in_flight_fences[i]) != VK_SUCCESS) {
             throw std::runtime_error("failed to create synchronization objects for a frame!");
         }
     }
@@ -268,7 +346,7 @@ void Swapchain::CreateSyncObjects() {
 auto Swapchain::QuerySwapChainSupport(VkPhysicalDevice device) -> SwapChainSupportDetails {
     SwapChainSupportDetails details;
 
-    auto *surface = m_render_device->GetSurface();
+    auto *surface = m_device->GetSurface();
 
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.capabilities);
 
@@ -318,7 +396,7 @@ auto Swapchain::ChooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities) -
     if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) { return capabilities.currentExtent; }
     int width{};
     int height{};
-    glfwGetFramebufferSize(m_render_device->GetRenderWindow()->GetGlfwWindow(), &width, &height);
+    glfwGetFramebufferSize(m_device->GetRenderWindow()->GetGlfwWindow(), &width, &height);
 
     VkExtent2D actual_extent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
 
@@ -339,7 +417,7 @@ auto Swapchain::FindSupportedFormat(const std::vector<VkFormat> &candidates, VkI
                                     VkFormatFeatureFlags features) -> VkFormat {
     for (VkFormat format: candidates) {
         VkFormatProperties props;
-        vkGetPhysicalDeviceFormatProperties(m_render_device->GetPhyDevice(), format, &props);
+        vkGetPhysicalDeviceFormatProperties(m_device->GetPhyDevice(), format, &props);
 
         if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) { return format; }
         if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {

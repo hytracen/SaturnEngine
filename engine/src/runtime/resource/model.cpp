@@ -98,6 +98,22 @@ Model::Model(const std::string &file_path) {
         }
     }
 
+    // 将模型放缩到标准立方体中
+    float max_val = 0.0f;
+
+    for (auto &vertex: m_vertices) {
+        max_val = std::max(max_val, vertex.m_position.x);
+        max_val = std::max(max_val, vertex.m_position.y);
+        max_val = std::max(max_val, vertex.m_position.z);
+    }
+
+    for (auto &vertex: m_vertices) {
+        vertex.m_position /= max_val;
+        // 下面只针对japanese_temple.obj
+        vertex.m_position *= 2.0f;
+        vertex.m_position.y -= 1.0f;
+    }
+
     ENGINE_LOG_INFO("Load model: {}\n vertices count:{}", file_path, m_vertices.size());
 }
 

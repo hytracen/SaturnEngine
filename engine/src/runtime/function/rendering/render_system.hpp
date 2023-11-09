@@ -24,6 +24,7 @@ struct UniformBufferObject {
     alignas(16) glm::mat4 model;
     alignas(16) glm::mat4 view;
     alignas(16) glm::mat4 proj;
+    alignas(16) glm::mat4 light_view_proj;
 };
 
 class RenderSystem {
@@ -32,7 +33,7 @@ public:
     ~RenderSystem();
 
     void Tick(float delta_time);
-    
+
     auto ShouldCloseWindow() -> bool;
 
 private:
@@ -46,6 +47,7 @@ private:
     void CreateDevice();
     void CreateSwapchain();
     void CreateDescriptorSetLayout();
+    void CreateShadowmapPipeline();
     void CreateGraphicsPipeline();
     void CreateImage();
     void CreateImageSampler();
@@ -60,32 +62,44 @@ private:
 
     /**
      * @brief 开始录制command
-     * 
      */
     void BeginFrame();
 
-    void BeginRenderPass();
-
-    void EndRenderPass();
-
     /**
      * @brief 结束录制command并提交
-     * 
      */
     void EndFrame();
 
-    std::shared_ptr<rendering::Window> m_window;
-    std::shared_ptr<rendering::Device> m_render_device;
-    std::unique_ptr<rendering::Swapchain> m_render_swapchain;
-    std::shared_ptr<rendering::DescriptorPool> m_descriptor_pool;
-    std::shared_ptr<rendering::DescriptorPool> m_imgui_descriptor_pool;
-    std::shared_ptr<rendering::DescriptorSetLayout> m_descriptor_set_layout;
-    std::shared_ptr<rendering::Image> m_render_image;
+    void BeginOffscreenRenderPass();
+
+    void EndOffscreenRenderPass();
+
+    /**
+     * @brief 最终将物体渲染到屏幕上的pass
+     */
+    void BeginShadingRenderPass();
+
+    void EndShadingRenderPass();
+
+    std::shared_ptr<Window> m_window;
+    std::shared_ptr<Device> m_render_device;
+    std::unique_ptr<Swapchain> m_render_swapchain;
+
+    std::shared_ptr<DescriptorPool> m_descriptor_pool;
+    std::shared_ptr<DescriptorPool> m_imgui_descriptor_pool;
+    std::shared_ptr<DescriptorSetLayout> m_shadowmap_descriptor_set_layout;
+    std::shared_ptr<DescriptorSetLayout> m_descriptor_set_layout;
+    std::vector<VkDescriptorSet> m_shadowmap_descriptor_sets;
     std::vector<VkDescriptorSet> m_descriptor_sets;
-    std::shared_ptr<rendering::Pipeline> m_graphics_pipeline;
-    std::vector<std::shared_ptr<rendering::RenderObject>> m_render_objects;
-    std::vector<std::shared_ptr<rendering::Buffer>> m_uniform_buffers;
-    std::shared_ptr<rendering::CommandsBuilder> m_command_builder;
+
+    std::shared_ptr<Image> m_render_image;
+
+    std::shared_ptr<Pipeline> m_shading_pipeline;
+    std::shared_ptr<Pipeline> m_shadowmap_pipeline;
+
+    std::vector<std::shared_ptr<RenderObject>> m_render_objects;
+    std::vector<std::shared_ptr<Buffer>> m_uniform_buffers;
+    std::shared_ptr<CommandsBuilder> m_command_builder;
 
     VkSampler m_texture_sampler;
     uint32_t m_cur_swapchain_frame_index = 0;
@@ -93,6 +107,8 @@ private:
 
     uint32_t m_width;
     uint32_t m_height;
+
+    uint32_t m_test = 0;
 };
 
 }// namespace rendering

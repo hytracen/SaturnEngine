@@ -32,21 +32,16 @@ public:
     //-------------------------------------------------------------------------------
 
 
-    DescriptorPool(
-            std::shared_ptr<Device> render_device,
-            uint32_t max_sets,
-            VkDescriptorPoolCreateFlags pool_flags,
-            const std::vector<VkDescriptorPoolSize> &pool_sizes);
+    DescriptorPool(std::shared_ptr<Device> render_device, uint32_t max_sets, VkDescriptorPoolCreateFlags pool_flags,
+                   const std::vector<VkDescriptorPoolSize> &pool_sizes);
     ~DescriptorPool();
     DescriptorPool(const DescriptorPool &) = delete;
     auto operator=(const DescriptorPool &) -> DescriptorPool & = delete;
 
-
     [[nodiscard]] auto GetDescriptorPool() const -> VkDescriptorPool { return m_descriptor_pool; };
     [[nodiscard]] auto GetDevice() const -> std::shared_ptr<Device> { return m_render_device; }
 
-    auto AllocateDescriptor(
-            VkDescriptorSetLayout descriptor_set_layout, VkDescriptorSet &descriptor_set) const -> bool;
+    auto AllocateDescriptor(VkDescriptorSetLayout descriptor_set_layout, VkDescriptorSet &descriptor_set) const -> bool;
 
     void FreeDescriptors(std::vector<VkDescriptorSet> &descriptor_sets) const;
 
@@ -66,7 +61,8 @@ public:
     public:
         explicit Builder(std::shared_ptr<Device> render_device) : m_render_device{std::move(render_device)} {}
 
-        auto AddBinding(uint32_t binding, VkDescriptorType descriptor_type, VkShaderStageFlags stage_flags, uint32_t count = 1) -> Builder &;
+        auto AddBinding(uint32_t binding, VkDescriptorType descriptor_type, VkShaderStageFlags stage_flags,
+                        uint32_t count = 1) -> Builder &;
         [[nodiscard]] auto Build() const -> std::unique_ptr<DescriptorSetLayout>;
 
     private:
@@ -75,13 +71,16 @@ public:
     };
     //-------------------------------------------------------------------------------
 
-    DescriptorSetLayout(std::shared_ptr<Device> render_device, const std::unordered_map<uint32_t, VkDescriptorSetLayoutBinding> &bindings);
+    DescriptorSetLayout(std::shared_ptr<Device> render_device,
+                        const std::unordered_map<uint32_t, VkDescriptorSetLayoutBinding> &bindings);
     ~DescriptorSetLayout();
     DescriptorSetLayout(const DescriptorSetLayout &) = delete;
     auto operator=(const DescriptorSetLayout &) -> DescriptorSetLayout & = delete;
 
     [[nodiscard]] auto GetDescriptorSetLayout() const -> VkDescriptorSetLayout { return m_descriptor_set_layout; }
-    [[nodiscard]] auto GetBindings() -> std::unordered_map<uint32_t, VkDescriptorSetLayoutBinding> & { return m_bindings; }
+    [[nodiscard]] auto GetBindings() -> std::unordered_map<uint32_t, VkDescriptorSetLayoutBinding> & {
+        return m_bindings;
+    }
 
 private:
     std::shared_ptr<Device> m_render_device;
@@ -94,6 +93,10 @@ public:
     DescriptorWriter(std::shared_ptr<DescriptorSetLayout> set_layout, std::shared_ptr<DescriptorPool> pool);
 
     auto WriteBuffer(uint32_t binding, VkDescriptorBufferInfo *buffer_info) -> DescriptorWriter &;
+
+    /**
+     * @brief 将descriptor中的采样器与真正的图像资源绑定
+     */
     auto WriteImage(uint32_t binding, VkDescriptorImageInfo *image_info) -> DescriptorWriter &;
 
     auto Build(VkDescriptorSet &set) -> bool;
@@ -106,6 +109,6 @@ private:
     std::vector<VkWriteDescriptorSet> m_writes;
 };
 
-}  // namespace rendering
+}// namespace rendering
 
 }// namespace saturn

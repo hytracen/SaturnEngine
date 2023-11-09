@@ -103,6 +103,6 @@ auto CommandsBuilder::GetCurrentCommandBuffer() -> VkCommandBuffer {
     return m_command_buffers.at(m_current_command_buffer_index);
 }
 
-}
+}  // namespace rendering
 
 }// namespace saturn

@@ -4,7 +4,7 @@ Engine::Engine() { Init(); }
 
 Engine::~Engine() = default;
 
-void Engine::Init() { m_render_system = std::make_unique<rendering::RenderSystem>(1920, 1080); }
+void Engine::Init() { m_render_system = std::make_unique<rendering::RenderSystem>(800, 800); }
 
 void Engine::Run() {
     while (!m_render_system->ShouldCloseWindow()) {

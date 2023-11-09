@@ -46,6 +46,7 @@ public:
     [[nodiscard]] auto GetVkImage() -> VkImage { return m_image; }
     [[nodiscard]] auto GetImageInfo() -> Info& { return m_image_info; }
     [[nodiscard]] auto GetVkImageView() -> VkImageView { return m_image_view; }
+    [[nodiscard]] auto GetExtent() -> std::pair<uint32_t, uint32_t> { return {m_image_info.m_width, m_image_info.m_height}; }
 
 private:
     void CreateImage();

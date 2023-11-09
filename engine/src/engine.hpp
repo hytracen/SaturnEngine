@@ -13,7 +13,7 @@ public:
 
     void Run();
 
-    auto CalculateDeltaTime() -> float;
+    [[nodiscard]] auto CalculateDeltaTime() -> float;
 
 private:
     void Init();

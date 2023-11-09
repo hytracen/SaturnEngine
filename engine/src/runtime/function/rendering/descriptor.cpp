@@ -79,7 +79,7 @@ auto DescriptorSetLayout::Builder::Build() const -> std::unique_ptr<DescriptorSe
 
 DescriptorSetLayout::DescriptorSetLayout(
         std::shared_ptr<Device> render_device, const std::unordered_map<uint32_t, VkDescriptorSetLayoutBinding> &bindings)
-    : m_render_device{render_device}, m_bindings{bindings} {
+    : m_render_device{std::move(render_device)}, m_bindings{bindings} {
 
     std::vector<VkDescriptorSetLayoutBinding> set_layout_bindings{};
     set_layout_bindings.reserve(bindings.size());
