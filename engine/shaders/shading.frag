@@ -45,4 +45,7 @@ float Pcf(vec4 in_light_proj_pos) {
     return shadow_factor / count;
 }
 
-void main() { outColor = vec4((1 - Pcf(light_proj_pos)) * texture(texSampler, fragTexCoord).rgb, 1.0); }
+//TODO(PBR)
+void main() { 
+    outColor = vec4((1 - Pcf(light_proj_pos)) * texture(texSampler, fragTexCoord).rgb, 1.0); 
+}

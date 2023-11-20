@@ -247,10 +247,13 @@ void RenderSystem::CreateImageSampler() {
 
 void RenderSystem::LoadModel() {
     // std::string model_path{R"(\models\viking_room.obj)"};
-    std::string model_path{R"(\models\japanese_temple.obj)"};
+    std::string temple_model_path{R"(\models\japanese_temple.obj)"};
+    std::string floor_model_path{R"(\models\floor.obj)"};
 
     m_render_objects.push_back(std::make_shared<rendering::RenderObject>(
-            m_render_device, std::make_unique<resource::Model>(ENGINE_ROOT_DIR + model_path)));
+            m_render_device, std::make_unique<resource::Model>(ENGINE_ROOT_DIR + temple_model_path)));
+    m_render_objects.push_back(std::make_shared<rendering::RenderObject>(
+            m_render_device, std::make_unique<resource::Model>(ENGINE_ROOT_DIR + floor_model_path)));
 }
 
 void RenderSystem::CreateUniformBuffers() {
