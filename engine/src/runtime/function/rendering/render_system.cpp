@@ -364,10 +364,12 @@ void RenderSystem::UpdateUniformBuffer(uint32_t current_frame_index) {
 
     // 右手坐标系，z轴指向屏幕外，y轴向上，x轴指向右侧
     UniformBufferObject ubo{};
+    auto eye_pos = glm::vec3(2.0f, 1.5f, 2.0f);
+
+    // 非均匀缩放时需要考虑法线的问题
     ubo.model = glm::mat4(1.0f);
-    // ubo.model = glm::rotate(ubo.model, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
     ubo.model = glm::rotate(ubo.model, accumulate_time * glm::radians(20.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    ubo.view = glm::lookAt(glm::vec3(2.0f, 1.5f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    ubo.view = glm::lookAt(eye_pos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     ubo.proj = glm::perspective(
             glm::radians(45.0f),
             m_render_swapchain->Extent().width / static_cast<float>(m_render_swapchain->Extent().height), 0.1f, 5.0f);
@@ -377,8 +379,9 @@ void RenderSystem::UpdateUniformBuffer(uint32_t current_frame_index) {
     //         m_render_swapchain->Extent().width / static_cast<float>(m_render_swapchain->Extent().height), 0.1f, 1000.0f);
 
     auto light_perspective = glm::ortho(-5.0f, 5.0f, -5.0f, 5.0f, 0.1f, 5.0f);
+    auto light_pos = glm::vec3(-2.0f, 2.0f, 2.0f);
 
-    ubo.light_view_proj = light_perspective * glm::lookAt(glm::vec3(-2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f),
+    ubo.light_view_proj = light_perspective * glm::lookAt(light_pos, glm::vec3(0.0f, 0.0f, 0.0f),
                                                           glm::vec3(0.0f, 1.0f, 0.0f));
 
     m_uniform_buffers.at(current_frame_index)->WriteToBuffer(&ubo);
